@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HandyPro CRM</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f8f7f4;
+    --surface: #ffffff;
+    --border: #e8e6e0;
+    --border2: #d0cec7;
+    --text: #1a1a18;
+    --text2: #6b6a65;
+    --text3: #9b9a96;
+    --accent: #EF9F27;
+    --accent-dark: #BA7517;
+    --accent-text: #412402;
+    --radius: 10px;
+    --radius-sm: 6px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; height: 100vh; display: flex; flex-direction: column; }
+
+  /* LOGIN */
+  .login-wrap { flex: 1; display: flex; align-items: center; justify-content: center; }
+  .login-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 36px 40px; width: 340px; }
+  .login-logo { display: flex; align-items: center; gap: 10px; margin-bottom: 28px; }
+  .login-logo-icon { width: 36px; height: 36px; background: var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .login-logo span { font-size: 18px; font-weight: 600; }
+  .login-card h2 { font-size: 15px; font-weight: 500; margin-bottom: 20px; color: var(--text2); }
+  .login-card input { width: 100%; padding: 9px 12px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); font-size: 14px; background: var(--surface); color: var(--text); margin-bottom: 10px; outline: none; }
+  .login-card input:focus { border-color: var(--accent); }
+  .login-err { color: #A32D2D; font-size: 12px; margin-bottom: 10px; }
+
+  /* APP */
+  .app { flex: 1; display: flex; overflow: hidden; }
+  .sidebar { width: 200px; background: var(--surface); border-right: 0.5px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; }
+  .sidebar-logo { padding: 16px; display: flex; align-items: center; gap: 9px; border-bottom: 0.5px solid var(--border); }
+  .sidebar-logo-icon { width: 28px; height: 28px; background: var(--accent); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+  .sidebar-logo span { font-size: 14px; font-weight: 600; }
+  .nav-section { padding: 12px 14px 4px; font-size: 10px; color: var(--text3); letter-spacing: .6px; text-transform: uppercase; }
+  .nav-item { margin: 1px 8px; padding: 8px 10px; border-radius: var(--radius-sm); cursor: pointer; display: flex; align-items: center; gap: 9px; color: var(--text2); font-size: 13px; transition: background .12s; }
+  .nav-item:hover { background: var(--bg); color: var(--text); }
+  .nav-item.active { background: #FAEEDA; color: var(--accent-text); font-weight: 500; }
+  .nav-item .icon { font-size: 16px; width: 18px; text-align: center; }
+  .sidebar-bottom { padding: 12px; border-top: 0.5px solid var(--border); margin-top: auto; }
+  .user-row { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-sm); }
+  .user-avatar { width: 28px; height: 28px; border-radius: 50%; background: #FAEEDA; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--accent-text); flex-shrink: 0; }
+  .user-email { font-size: 11px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .logout-btn { font-size: 11px; color: var(--text3); cursor: pointer; padding: 2px; }
+  .logout-btn:hover { color: #A32D2D; }
+
+  /* MAIN */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+  .topbar { padding: 12px 20px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; gap: 10px; background: var(--surface); flex-shrink: 0; }
+  .topbar h2 { font-size: 15px; font-weight: 600; white-space: nowrap; }
+  .search-wrap { position: relative; flex: 1; max-width: 260px; }
+  .search-icon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text3); font-size: 14px; pointer-events: none; }
+  .search-bar { width: 100%; padding: 7px 10px 7px 30px; font-size: 13px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--bg); color: var(--text); outline: none; }
+  .search-bar:focus { border-color: var(--accent); }
+  .filter-sel { padding: 7px 10px; font-size: 12px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; cursor: pointer; }
+  .btn { padding: 7px 14px; font-size: 13px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); cursor: pointer; background: var(--surface); color: var(--text); display: inline-flex; align-items: center; gap: 6px; transition: background .12s; white-space: nowrap; }
+  .btn:hover { background: var(--bg); }
+  .btn-primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent-dark); font-weight: 500; }
+  .btn-primary:hover { background: var(--accent-dark); color: var(--accent-text); }
+  .btn-danger { color: #791F1F; border-color: #F09595; }
+  .btn-danger:hover { background: #FCEBEB; }
+  .content { flex: 1; overflow-y: auto; padding: 16px 20px; }
+
+  /* LEADS */
+  .lead-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border: 0.5px solid var(--border); border-radius: var(--radius-sm); background: var(--surface); cursor: pointer; margin-bottom: 5px; transition: background .12s; }
+  .lead-row:hover { background: var(--bg); }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+  .lead-info { flex: 1; min-width: 0; }
+  .lead-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .lead-sub { font-size: 12px; color: var(--text2); }
+  .badge { padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 500; white-space: nowrap; }
+  .src-thumbtack { background: #E6F1FB; color: #0C447C; }
+  .src-yelp { background: #FCEBEB; color: #791F1F; }
+  .src-google { background: #EAF3DE; color: #27500A; }
+  .src-other { background: #F1EFE8; color: #444441; }
+  .s-new { background: #FAEEDA; color: #633806; }
+  .s-quoted { background: #E6F1FB; color: #0C447C; }
+  .s-scheduled { background: #EEEDFE; color: #3C3489; }
+  .s-done { background: #EAF3DE; color: #27500A; }
+  .s-paid { background: #EAF3DE; color: #175404; border: 0.5px solid #97C459; }
+  .s-lost { background: #F1EFE8; color: #5F5E5A; }
+  .lead-amt { font-size: 13px; font-weight: 500; white-space: nowrap; min-width: 50px; text-align: right; }
+
+  /* PANEL */
+  .panel { width: 0; overflow: hidden; border-left: 0.5px solid var(--border); background: var(--surface); display: flex; flex-direction: column; transition: width .2s; flex-shrink: 0; }
+  .panel.open { width: 320px; overflow: visible; }
+  .panel-header { padding: 12px 16px; border-bottom: 0.5px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .panel-title { font-size: 14px; font-weight: 600; }
+  .panel-body { padding: 16px; flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+  .field-group { display: flex; flex-direction: column; gap: 4px; }
+  .field-label { font-size: 11px; color: var(--text2); font-weight: 500; text-transform: uppercase; letter-spacing: .3px; }
+  .field-input { width: 100%; padding: 7px 10px; font-size: 13px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface); color: var(--text); outline: none; font-family: inherit; }
+  .field-input:focus { border-color: var(--accent); }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .hist-item { padding: 7px 0; border-bottom: 0.5px solid var(--border); font-size: 12px; color: var(--text); }
+  .hist-date { font-size: 11px; color: var(--text3); }
+
+  /* STATS */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .stat-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 14px; }
+  .stat-label { font-size: 11px; color: var(--text2); margin-bottom: 4px; }
+  .stat-val { font-size: 22px; font-weight: 600; }
+  .section-hd { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 10px; text-transform: uppercase; letter-spacing: .4px; }
+  .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  .bar-label { font-size: 13px; color: var(--text2); width: 100px; flex-shrink: 0; }
+  .bar-track { flex: 1; background: var(--bg); border-radius: 4px; height: 20px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; display: flex; align-items: center; padding-left: 8px; transition: width .4s; }
+  .bar-count { font-size: 12px; font-weight: 600; color: var(--text2); width: 20px; text-align: right; }
+
+  /* LOADING / EMPTY */
+  .loading { text-align: center; padding: 40px; color: var(--text3); }
+  .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; margin: 0 auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty { text-align: center; padding: 50px 20px; color: var(--text3); font-size: 13px; }
+
+  /* WEBHOOK INFO */
+  .webhook-box { background: var(--bg); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 12px; font-family: monospace; font-size: 12px; color: var(--text2); word-break: break-all; cursor: pointer; }
+  .webhook-box:hover { border-color: var(--accent); }
+  .copy-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+  .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px; font-size: 11px; background: var(--bg); border: 0.5px solid var(--border); color: var(--text2); }
+</style>
+</head>
+<body>
+
+<div id="login-screen" class="login-wrap">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">🔧</div>
+      <span>HandyPro CRM</span>
+    </div>
+    <h2>Войдите в систему</h2>
+    <input type="email" id="login-email" placeholder="Email" autocomplete="email">
+    <input type="password" id="login-pass" placeholder="Пароль" autocomplete="current-password">
+    <div class="login-err" id="login-err" style="display:none"></div>
+    <button class="btn btn-primary" onclick="doLogin()" style="width:100%;justify-content:center;padding:9px">Войти</button>
+    <div style="text-align:center;margin-top:12px">
+      <span style="font-size:12px;color:var(--text3);cursor:pointer" onclick="doRegister()">Нет аккаунта? Зарегистрироваться</span>
+    </div>
+  </div>
+</div>
+
+<div id="app-screen" class="app" style="display:none">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="sidebar-logo-icon">🔧</div>
+      <span>HandyPro CRM</span>
+    </div>
+    <div style="flex:1;padding:8px 0">
+      <div class="nav-section">Работа</div>
+      <div class="nav-item active" id="nav-leads" onclick="switchNav('leads',this)">
+        <span class="icon">📋</span>Заявки
+      </div>
+      <div class="nav-item" id="nav-schedule" onclick="switchNav('schedule',this)">
+        <span class="icon">📅</span>Расписание
+      </div>
+      <div class="nav-section">Аналитика</div>
+      <div class="nav-item" id="nav-sources" onclick="switchNav('sources',this)">
+        <span class="icon">📊</span>Источники
+      </div>
+      <div class="nav-item" id="nav-revenue" onclick="switchNav('revenue',this)">
+        <span class="icon">💰</span>Доход
+      </div>
+      <div class="nav-section">Настройки</div>
+      <div class="nav-item" id="nav-integrations" onclick="switchNav('integrations',this)">
+        <span class="icon">🔗</span>Интеграции
+      </div>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="user-row">
+        <div class="user-avatar" id="user-initials">?</div>
+        <div class="user-email" id="user-email-label"></div>
+        <span class="logout-btn" onclick="doLogout()" title="Выйти">✕</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h2 id="view-title">Заявки</h2>
+      <div class="search-wrap" id="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-bar" type="text" placeholder="Поиск..." id="search-input" oninput="renderLeads()">
+      </div>
+      <div id="filter-row" style="display:flex;gap:6px">
+        <select class="filter-sel" id="filter-status" onchange="renderLeads()">
+          <option value="">Все статусы</option>
+          <option>Новая</option><option>КП отправлено</option><option>Запланировано</option><option>Выполнено</option><option>Оплачено</option><option>Отказ</option>
+        </select>
+        <select class="filter-sel" id="filter-source" onchange="renderLeads()">
+          <option value="">Все источники</option>
+          <option>Thumbtack</option><option>Yelp</option><option>Google Ads</option><option>Другое</option>
+        </select>
+      </div>
+      <div style="margin-left:auto" id="add-btn-wrap">
+        <button class="btn btn-primary" onclick="openAdd()">+ Заявка</button>
+      </div>
+    </div>
+    <div class="content" id="main-content">
+      <div class="loading"><div class="spinner"></div>Загрузка...</div>
+    </div>
+  </div>
+
+  <div class="panel" id="side-panel">
+    <div class="panel-header">
+      <span class="panel-title" id="panel-title">Новая заявка</span>
+      <button class="btn" onclick="closePanel()" style="padding:4px 8px">✕</button>
+    </div>
+    <div class="panel-body" id="panel-body"></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://acbsjqyoayxogknniahf.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFjYnNqcXlvYXl4b2drbm5pYWhmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzg5NjU4MzUsImV4cCI6MjA5NDU0MTgzNX0.h-ny5veT10SXKoau14jES4zW73UeTb9OoII5qY4o64s';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const SERVICES = ['Сантехника','Электрика','Плотник','Покраска','Ремонт полов','Установка мебели','Гипсокартон','Плитка','Ворота/Заборы','Освещение','Общий ремонт','Другое'];
+const SRC_CLASS = {Thumbtack:'src-thumbtack',Yelp:'src-yelp','Google Ads':'src-google',Другое:'src-other'};
+const STAT_CLASS = {Новая:'s-new','КП отправлено':'s-quoted',Запланировано:'s-scheduled',Выполнено:'s-done',Оплачено:'s-paid',Отказ:'s-lost'};
+const AVATAR_COLORS = [['#E6F1FB','#0C447C'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#EEEDFE','#3C3489'],['#FAECE7','#712B13'],['#FBEAF0','#72243E']];
+
+let currentView = 'leads';
+let editId = null;
+let allLeads = [];
+
+function initials(n){ return (n||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase(); }
+function avatarStyle(n){ const c=AVATAR_COLORS[(n||'A').charCodeAt(0)%AVATAR_COLORS.length]; return `background:${c[0]};color:${c[1]}`; }
+function fmtAmt(a){ return a>0?'$'+Number(a).toLocaleString():'—'; }
+function srcClass(s){ return 'badge '+(SRC_CLASS[s]||'src-other'); }
+function statClass(s){ return 'badge '+(STAT_CLASS[s]||'s-new'); }
+function srcLabel(s){ return s==='Google Ads'?'Google':s; }
+function today(){ return new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'}); }
+
+/* AUTH */
+async function doLogin(){
+  const email=document.getElementById('login-email').value;
+  const pass=document.getElementById('login-pass').value;
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  if(error){showErr(error.message)}else{initApp();}
+}
+async function doRegister(){
+  const email=document.getElementById('login-email').value;
+  const pass=document.getElementById('login-pass').value;
+  if(!email||!pass){showErr('Введите email и пароль');return;}
+  const {error}=await sb.auth.signUp({email,password:pass});
+  if(error){showErr(error.message)}else{showErr('Проверьте email для подтверждения!');}
+}
+async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+function showErr(msg){ const el=document.getElementById('login-err'); el.textContent=msg; el.style.display=''; }
+
+async function checkAuth(){
+  const {data:{session}}=await sb.auth.getSession();
+  if(session){ initApp(); }
+}
+
+async function initApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-screen').style.display='flex';
+  const {data:{user}}=await sb.auth.getUser();
+  if(user){
+    const e=user.email||'';
+    document.getElementById('user-email-label').textContent=e;
+    document.getElementById('user-initials').textContent=e.substring(0,2).toUpperCase();
+  }
+  await loadLeads();
+  renderLeads();
+}
+
+/* DATA */
+async function loadLeads(){
+  const {data,error}=await sb.from('leads').select('*').order('created_at',{ascending:false});
+  if(!error) allLeads=data||[];
+}
+
+async function saveLead(lead){
+  if(lead.id){
+    const {id,created_at,...rest}=lead;
+    await sb.from('leads').update(rest).eq('id',id);
+  } else {
+    const {data}=await sb.from('leads').insert([lead]).select();
+    if(data&&data[0]) allLeads.unshift(data[0]);
+  }
+  await loadLeads();
+}
+
+async function deleteLead(id){
+  await sb.from('leads').delete().eq('id',id);
+  allLeads=allLeads.filter(x=>x.id!==id);
+}
+
+/* NAV */
+function switchNav(v, el){
+  currentView=v; closePanel();
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  const titles={leads:'Заявки',schedule:'Расписание',sources:'Источники клиентов',revenue:'Доход',integrations:'Интеграции'};
+  document.getElementById('view-title').textContent=titles[v];
+  const showSearch=v==='leads';
+  document.getElementById('search-wrap').style.display=showSearch?'':'none';
+  document.getElementById('filter-row').style.display=showSearch?'flex':'none';
+  document.getElementById('add-btn-wrap').style.display=(v==='sources'||v==='revenue'||v==='integrations')?'none':'';
+  if(v==='leads') renderLeads();
+  else if(v==='schedule') renderSchedule();
+  else if(v==='sources') renderSources();
+  else if(v==='revenue') renderRevenue();
+  else renderIntegrations();
+}
+
+/* LEADS VIEW */
+function renderLeads(){
+  const q=(document.getElementById('search-input')||{}).value||'';
+  const fs=document.getElementById('filter-status').value;
+  const fsrc=document.getElementById('filter-source').value;
+  const list=allLeads.filter(l=>{
+    const mq=(l.name||'').toLowerCase().includes(q.toLowerCase())||(l.service||'').toLowerCase().includes(q.toLowerCase());
+    const ms=!fs||l.status===fs;
+    const msrc=!fsrc||l.source===fsrc;
+    return mq&&ms&&msrc;
+  });
+  const el=document.getElementById('main-content');
+  if(!list.length){ el.innerHTML='<div class="empty">📋 Заявок не найдено</div>'; return; }
+  el.innerHTML=list.map(l=>`
+    <div class="lead-row" onclick="openLead(${l.id})">
+      <div class="avatar" style="${avatarStyle(l.name)}">${initials(l.name)}</div>
+      <div class="lead-info">
+        <div class="lead-name">${l.name||'—'}</div>
+        <div class="lead-sub">${l.service||''} · ${(l.address||'').split(',').slice(1).join(',').trim()||l.address||''}</div>
+      </div>
+      <span class="${srcClass(l.source)}">${srcLabel(l.source||'Другое')}</span>
+      <span class="${statClass(l.status)}">${l.status||'Новая'}</span>
+      <div class="lead-amt">${fmtAmt(l.amount)}</div>
+    </div>
+  `).join('');
+}
+
+/* SCHEDULE VIEW */
+function renderSchedule(){
+  const list=allLeads.filter(l=>l.status==='Запланировано'||l.status==='Новая').sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+  const el=document.getElementById('main-content');
+  if(!list.length){ el.innerHTML='<div class="empty">📅 Нет запланированных работ</div>'; return; }
+  el.innerHTML=list.map(l=>{
+    const d=l.date?new Date(l.date):null;
+    return `<div class="lead-row" onclick="openLead(${l.id})" style="align-items:flex-start;padding:12px">
+      <div style="width:48px;text-align:center;flex-shrink:0;padding-top:2px">
+        <div style="font-size:20px;font-weight:700;line-height:1">${d?d.getDate():'—'}</div>
+        <div style="font-size:11px;color:var(--text3)">${d?d.toLocaleDateString('ru-RU',{month:'short'}):''}</div>
+      </div>
+      <div class="lead-info">
+        <div class="lead-name">${l.name||'—'}</div>
+        <div class="lead-sub">${l.service||''} · ${l.address||''}</div>
+      </div>
+      <span class="${statClass(l.status)}">${l.status}</span>
+      <div class="lead-amt">${fmtAmt(l.amount)}</div>
+    </div>`;
+  }).join('');
+}
+
+/* SOURCES VIEW */
+function renderSources(){
+  const sources=['Thumbtack','Yelp','Google Ads','Другое'];
+  const clrs={Thumbtack:'#378ADD',Yelp:'#E24B4A','Google Ads':'#639922',Другое:'#888780'};
+  const total=allLeads.length||1;
+  const counts={};const amounts={};const convs={};
+  sources.forEach(s=>{counts[s]=0;amounts[s]=0;convs[s]=0;});
+  allLeads.forEach(l=>{
+    const s=l.source||'Другое';
+    counts[s]=(counts[s]||0)+1;
+    if(l.amount>0) amounts[s]=(amounts[s]||0)+Number(l.amount);
+    if(l.status==='Оплачено'||l.status==='Выполнено') convs[s]=(convs[s]||0)+1;
+  });
+  const paid=allLeads.filter(l=>l.status==='Оплачено'||l.status==='Выполнено').length;
+  const revenue=allLeads.reduce((s,l)=>s+Number(l.amount||0),0);
+  const paidLeads=allLeads.filter(l=>l.amount>0);
+  const avgCheck=paidLeads.length?Math.round(revenue/paidLeads.length):0;
+  document.getElementById('main-content').innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Всего заявок</div><div class="stat-val">${allLeads.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Конверсия</div><div class="stat-val">${Math.round(paid/total*100)}%</div></div>
+      <div class="stat-card"><div class="stat-label">Выручка</div><div class="stat-val">$${revenue.toLocaleString()}</div></div>
+      <div class="stat-card"><div class="stat-label">Средний чек</div><div class="stat-val">$${avgCheck}</div></div>
+    </div>
+    <div class="section-hd">Заявки по источнику</div>
+    <div style="margin-bottom:24px">
+      ${sources.map(s=>{
+        const pct=Math.round((counts[s]||0)/total*100);
+        const convPct=counts[s]?Math.round((convs[s]||0)/counts[s]*100):0;
+        return `<div style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px">
+            <span class="badge ${SRC_CLASS[s]||'src-other'}">${s}</span>
+            <span style="font-size:12px;color:var(--text2)">${counts[s]} заявок · конв. ${convPct}% · $${(amounts[s]||0).toLocaleString()}</span>
+          </div>
+          <div class="bar-track" style="height:24px">
+            <div class="bar-fill" style="width:${pct}%;background:${clrs[s]}">
+              ${pct>10?`<span style="font-size:12px;color:#fff;font-weight:600">${pct}%</span>`:''}
+            </div>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="section-hd">Топ услуг</div>
+    ${Object.entries(allLeads.reduce((acc,l)=>{acc[l.service||'Другое']=(acc[l.service||'Другое']||0)+1;return acc},{})).sort((a,b)=>b[1]-a[1]).slice(0,6).map(([s,n])=>`
+      <div class="bar-row">
+        <span class="bar-label">${s}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${Math.round(n/total*100)}%;background:var(--accent)"></div></div>
+        <span class="bar-count">${n}</span>
+      </div>`).join('')}
+  `;
+}
+
+/* REVENUE VIEW */
+function renderRevenue(){
+  const paid=allLeads.filter(l=>l.status==='Оплачено');
+  const done=allLeads.filter(l=>l.status==='Выполнено');
+  const all=allLeads.filter(l=>l.amount>0);
+  const collected=paid.reduce((s,l)=>s+Number(l.amount||0),0);
+  const pending=done.reduce((s,l)=>s+Number(l.amount||0),0);
+  const total=all.reduce((s,l)=>s+Number(l.amount||0),0);
+  document.getElementById('main-content').innerHTML=`
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-label">Всего выручка</div><div class="stat-val" style="color:#3B6D11">$${total.toLocaleString()}</div></div>
+      <div class="stat-card"><div class="stat-label">Получено</div><div class="stat-val">$${collected.toLocaleString()}</div></div>
+      <div class="stat-card"><div class="stat-label">Ожидается</div><div class="stat-val" style="color:#854F0B">$${pending.toLocaleString()}</div></div>
+      <div class="stat-card"><div class="stat-label">Средний чек</div><div class="stat-val">$${paid.length?Math.round(collected/paid.length):0}</div></div>
+    </div>
+    <div class="section-hd">Завершённые работы</div>
+    ${[...paid,...done].sort((a,b)=>(b.date||'').localeCompare(a.date||'')).map(l=>`
+      <div class="lead-row" onclick="openLead(${l.id})">
+        <div class="avatar" style="${avatarStyle(l.name)}">${initials(l.name)}</div>
+        <div class="lead-info"><div class="lead-name">${l.name}</div><div class="lead-sub">${l.service} · ${l.date||''}</div></div>
+        <span class="${srcClass(l.source)}">${srcLabel(l.source||'Другое')}</span>
+        <span class="${statClass(l.status)}">${l.status}</span>
+        <div class="lead-amt" style="color:#3B6D11">${fmtAmt(l.amount)}</div>
+      </div>`).join('')}
+    ${[...paid,...done].length===0?'<div class="empty">Нет завершённых работ</div>':''}
+  `;
+}
+
+/* INTEGRATIONS VIEW */
+function renderIntegrations(){
+  const webhookUrl=`${SUPABASE_URL}/functions/v1/inbound-lead`;
+  document.getElementById('main-content').innerHTML=`
+    <div style="max-width:600px">
+      <div style="margin-bottom:24px">
+        <div class="section-hd">Автоматические лиды — как это работает</div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:12px">
+          Когда к вашей CRM подключён вебхук, заявки с Thumbtack, Yelp и Google Ads попадают сюда автоматически — без ручного ввода.
+        </div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="border:0.5px solid var(--border);border-radius:var(--radius);padding:16px;background:var(--surface)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span class="badge src-thumbtack" style="font-size:13px;padding:4px 10px">Thumbtack</span>
+            <span style="font-size:12px;color:var(--text2)">через Zapier или Make</span>
+          </div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7">
+            1. Зайдите на <strong>zapier.com</strong> → New Zap<br>
+            2. Trigger: <strong>Email by Zapier</strong> — каждое письмо от Thumbtack<br>
+            3. Action: <strong>Webhooks by Zapier → POST</strong><br>
+            4. URL вебхука → скопируйте ниже<br>
+            5. Поля: name, phone, service, source="Thumbtack"
+          </div>
+        </div>
+
+        <div style="border:0.5px solid var(--border);border-radius:var(--radius);padding:16px;background:var(--surface)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span class="badge src-yelp" style="font-size:13px;padding:4px 10px">Yelp</span>
+            <span style="font-size:12px;color:var(--text2)">через Zapier или Make</span>
+          </div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7">
+            То же самое что Thumbtack — Yelp отправляет email при новом запросе.<br>
+            В Zapier поставьте фильтр на письма от <strong>noreply@yelp.com</strong><br>
+            source="Yelp"
+          </div>
+        </div>
+
+        <div style="border:0.5px solid var(--border);border-radius:var(--radius);padding:16px;background:var(--surface)">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <span class="badge src-google" style="font-size:13px;padding:4px 10px">Google Ads</span>
+            <span style="font-size:12px;color:var(--text2)">прямой вебхук</span>
+          </div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7">
+            1. В Google Ads → Lead Form Extensions<br>
+            2. Webhook URL → вставьте адрес ниже<br>
+            3. Google пришлёт лид автоматически при заполнении формы<br>
+            source="Google Ads"
+          </div>
+        </div>
+
+        <div style="border:0.5px solid var(--border);border-radius:var(--radius);padding:16px;background:var(--surface)">
+          <div class="section-hd" style="margin-bottom:8px">Ваш Webhook URL</div>
+          <div class="webhook-box" onclick="copyWebhook()" title="Нажмите чтобы скопировать">
+            POST ${SUPABASE_URL}/rest/v1/leads
+          </div>
+          <div class="copy-hint">Нажмите чтобы скопировать · Нужен заголовок apikey: ${SUPABASE_KEY.substring(0,20)}...</div>
+          <div style="margin-top:12px;font-size:13px;color:var(--text2)">
+            <strong>Заголовки для Zapier:</strong><br>
+            <code style="font-size:12px;background:var(--bg);padding:2px 6px;border-radius:4px">apikey: ${SUPABASE_KEY.substring(0,30)}...</code><br>
+            <code style="font-size:12px;background:var(--bg);padding:2px 6px;border-radius:4px">Content-Type: application/json</code>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:20px;padding:14px;background:#FAEEDA;border-radius:var(--radius);font-size:13px;color:var(--accent-text)">
+        💡 <strong>Совет:</strong> Напишите мне в чате и я помогу настроить Zapier шаг за шагом — это займёт 20 минут.
+      </div>
+    </div>
+  `;
+}
+
+function copyWebhook(){
+  navigator.clipboard.writeText(`${SUPABASE_URL}/rest/v1/leads`);
+  alert('Скопировано!');
+}
+
+/* LEAD PANEL */
+function openLead(id){
+  editId=id;
+  const l=allLeads.find(x=>x.id===id);
+  if(!l) return;
+  const hist=Array.isArray(l.history)?l.history:[];
+  document.getElementById('panel-title').textContent=l.name||'Заявка';
+  document.getElementById('panel-body').innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="avatar" style="${avatarStyle(l.name)};width:42px;height:42px;font-size:14px">${initials(l.name)}</div>
+      <div>
+        <div style="font-size:14px;font-weight:600">${l.name||'—'}</div>
+        <div style="font-size:12px;color:var(--text2)">${l.phone||''}</div>
+      </div>
+    </div>
+    <div class="field-group"><div class="field-label">Источник</div>
+      <select class="field-input" onchange="patchField(${id},'source',this.value)">
+        ${['Thumbtack','Yelp','Google Ads','Другое'].map(s=>`<option${l.source===s?' selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field-group"><div class="field-label">Услуга</div>
+      <select class="field-input" onchange="patchField(${id},'service',this.value)">
+        ${SERVICES.map(s=>`<option${l.service===s?' selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field-group"><div class="field-label">Статус</div>
+      <select class="field-input" onchange="patchField(${id},'status',this.value)">
+        ${['Новая','КП отправлено','Запланировано','Выполнено','Оплачено','Отказ'].map(s=>`<option${l.status===s?' selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="two-col">
+      <div class="field-group"><div class="field-label">Сумма ($)</div>
+        <input class="field-input" type="number" value="${l.amount||''}" placeholder="0" onchange="patchField(${id},'amount',+this.value)">
+      </div>
+      <div class="field-group"><div class="field-label">Дата</div>
+        <input class="field-input" type="date" value="${l.date||''}" onchange="patchField(${id},'date',this.value)">
+      </div>
+    </div>
+    <div class="field-group"><div class="field-label">Телефон</div>
+      <input class="field-input" value="${l.phone||''}" onchange="patchField(${id},'phone',this.value)">
+    </div>
+    <div class="field-group"><div class="field-label">Адрес</div>
+      <input class="field-input" value="${l.address||''}" onchange="patchField(${id},'address',this.value)">
+    </div>
+    <div class="field-group"><div class="field-label">Заметки</div>
+      <textarea class="field-input" rows="3" onchange="patchField(${id},'notes',this.value)">${l.notes||''}</textarea>
+    </div>
+    <div>
+      <div class="field-label" style="margin-bottom:8px">История (${hist.length})</div>
+      ${hist.map(h=>`<div class="hist-item">${h}</div>`).join('')}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <input class="field-input" id="hist-inp" placeholder="Добавить запись..." style="flex:1">
+        <button class="btn" onclick="addHistEntry(${id})" style="padding:7px 10px">+</button>
+      </div>
+    </div>
+    <button class="btn btn-danger" onclick="confirmDelete(${id})" style="width:100%;justify-content:center">🗑 Удалить заявку</button>
+  `;
+  document.getElementById('side-panel').classList.add('open');
+}
+
+async function patchField(id, field, val){
+  const l=allLeads.find(x=>x.id===id);
+  if(!l) return;
+  l[field]=val;
+  await sb.from('leads').update({[field]:val}).eq('id',id);
+  if(currentView==='leads') renderLeads();
+  else if(currentView==='schedule') renderSchedule();
+  else if(currentView==='revenue') renderRevenue();
+}
+
+async function addHistEntry(id){
+  const inp=document.getElementById('hist-inp');
+  if(!inp||!inp.value.trim()) return;
+  const l=allLeads.find(x=>x.id===id);
+  const hist=Array.isArray(l.history)?[...l.history]:[];
+  hist.unshift(`${today()} — ${inp.value.trim()}`);
+  l.history=hist;
+  await sb.from('leads').update({history:hist}).eq('id',id);
+  openLead(id);
+}
+
+async function confirmDelete(id){
+  if(!confirm('Удалить эту заявку?')) return;
+  await deleteLead(id);
+  closePanel();
+  renderLeads();
+}
+
+/* ADD NEW */
+function openAdd(){
+  editId=null;
+  document.getElementById('panel-title').textContent='Новая заявка';
+  const todayDate=new Date().toISOString().split('T')[0];
+  document.getElementById('panel-body').innerHTML=`
+    <div class="field-group"><div class="field-label">Имя клиента *</div><input class="field-input" id="a-name" placeholder="John Smith"></div>
+    <div class="field-group"><div class="field-label">Телефон</div><input class="field-input" id="a-phone" placeholder="+1 (310) 555-0100"></div>
+    <div class="field-group"><div class="field-label">Адрес</div><input class="field-input" id="a-addr" placeholder="Улица, район, LA"></div>
+    <div class="field-group"><div class="field-label">Источник</div>
+      <select class="field-input" id="a-src">
+        <option>Thumbtack</option><option>Yelp</option><option>Google Ads</option><option>Другое</option>
+      </select>
+    </div>
+    <div class="field-group"><div class="field-label">Услуга</div>
+      <select class="field-input" id="a-svc">
+        ${SERVICES.map(s=>`<option>${s}</option>`).join('')}
+      </select>
+    </div>
+    <div class="two-col">
+      <div class="field-group"><div class="field-label">Сумма ($)</div><input class="field-input" id="a-amt" type="number" placeholder="0"></div>
+      <div class="field-group"><div class="field-label">Дата</div><input class="field-input" id="a-date" type="date" value="${todayDate}"></div>
+    </div>
+    <div class="field-group"><div class="field-label">Статус</div>
+      <select class="field-input" id="a-status">
+        <option>Новая</option><option>КП отправлено</option><option>Запланировано</option><option>Выполнено</option><option>Оплачено</option>
+      </select>
+    </div>
+    <div class="field-group"><div class="field-label">Заметки</div><textarea class="field-input" id="a-notes" rows="3" placeholder="Детали работы..."></textarea></div>
+    <button class="btn btn-primary" onclick="saveNew()" style="width:100%;justify-content:center">Сохранить заявку</button>
+  `;
+  document.getElementById('side-panel').classList.add('open');
+}
+
+async function saveNew(){
+  const name=document.getElementById('a-name').value.trim();
+  if(!name){alert('Введите имя клиента');return;}
+  const src=document.getElementById('a-src').value;
+  const lead={
+    name, phone:document.getElementById('a-phone').value,
+    address:document.getElementById('a-addr').value,
+    source:src, service:document.getElementById('a-svc').value,
+    amount:+document.getElementById('a-amt').value||0,
+    date:document.getElementById('a-date').value,
+    status:document.getElementById('a-status').value,
+    notes:document.getElementById('a-notes').value,
+    history:[`${today()} — заявка добавлена (${src})`]
+  };
+  await saveLead(lead);
+  closePanel();
+  renderLeads();
+}
+
+function closePanel(){
+  document.getElementById('side-panel').classList.remove('open');
+  editId=null;
+}
+
+/* INIT */
+checkAuth();
+</script>
+</body>
+</html>

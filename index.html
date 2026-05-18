@@ -137,13 +137,13 @@
       <div class="login-logo-icon">🔧</div>
       <span>HandyPro CRM</span>
     </div>
-    <h2>Войдите в систему</h2>
-    <input type="email" id="login-email" placeholder="Email" autocomplete="email">
+    <h2>Введите пароль для входа</h2>
     <input type="password" id="login-pass" placeholder="Пароль" autocomplete="current-password">
     <div class="login-err" id="login-err" style="display:none"></div>
-    <button class="btn btn-primary" onclick="doLogin()" style="width:100%;justify-content:center;padding:9px">Войти</button>
-    <div style="text-align:center;margin-top:12px">
-      <span style="font-size:12px;color:var(--text3);cursor:pointer" onclick="doRegister()">Нет аккаунта? Зарегистрироваться</span>
+    <button class="btn btn-primary" onclick="doLogin()" style="width:100%;justify-content:center;padding:9px;margin-top:4px">Войти</button>
+    <div style="margin-top:12px;padding:10px;background:#FAEEDA;border-radius:6px;font-size:12px;color:#412402">
+      🔑 Пароль по умолчанию: <strong>handyman2024</strong><br>
+      <span style="color:#854F0B">Запомните или смените в коде</span>
     </div>
   </div>
 </div>
@@ -241,37 +241,31 @@ function statClass(s){ return 'badge '+(STAT_CLASS[s]||'s-new'); }
 function srcLabel(s){ return s==='Google Ads'?'Google':s; }
 function today(){ return new Date().toLocaleDateString('ru-RU',{day:'numeric',month:'long'}); }
 
-/* AUTH */
+/* AUTH - simple password protection */
+const APP_PASSWORD = 'handyman2024';
+
 async function doLogin(){
-  const email=document.getElementById('login-email').value;
   const pass=document.getElementById('login-pass').value;
-  const {error}=await sb.auth.signInWithPassword({email,password:pass});
-  if(error){showErr(error.message)}else{initApp();}
+  if(pass===APP_PASSWORD){
+    localStorage.setItem('crm_auth','1');
+    initApp();
+  } else {
+    showErr('Неверный пароль');
+  }
 }
-async function doRegister(){
-  const email=document.getElementById('login-email').value;
-  const pass=document.getElementById('login-pass').value;
-  if(!email||!pass){showErr('Введите email и пароль');return;}
-  const {error}=await sb.auth.signUp({email,password:pass});
-  if(error){showErr(error.message)}else{showErr('Проверьте email для подтверждения!');}
-}
-async function doLogout(){ await sb.auth.signOut(); location.reload(); }
+async function doRegister(){ doLogin(); }
+async function doLogout(){ localStorage.removeItem('crm_auth'); location.reload(); }
 function showErr(msg){ const el=document.getElementById('login-err'); el.textContent=msg; el.style.display=''; }
 
 async function checkAuth(){
-  const {data:{session}}=await sb.auth.getSession();
-  if(session){ initApp(); }
+  if(localStorage.getItem('crm_auth')){initApp();}
 }
 
 async function initApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-screen').style.display='flex';
-  const {data:{user}}=await sb.auth.getUser();
-  if(user){
-    const e=user.email||'';
-    document.getElementById('user-email-label').textContent=e;
-    document.getElementById('user-initials').textContent=e.substring(0,2).toUpperCase();
-  }
+  document.getElementById('user-email-label').textContent='HandyPro Admin';
+  document.getElementById('user-initials').textContent='HP';
   await loadLeads();
   renderLeads();
 }

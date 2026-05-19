@@ -127,6 +127,17 @@
   .copy-hint { font-size: 11px; color: var(--text3); margin-top: 4px; }
 
   .tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 99px; font-size: 11px; background: var(--bg); border: 0.5px solid var(--border); color: var(--text2); }
+  .worker-serge { background: #EEEDFE; color: #3C3489; border: 0.5px solid #C5C2F5; }
+  .worker-nik { background: #EAF3DE; color: #27500A; border: 0.5px solid #97C459; }
+  .worker-none { background: var(--bg); color: var(--text3); border: 0.5px solid var(--border); }
+
+  /* CALENDAR */
+  .cal-cell { min-height: 80px; border-right: 0.5px solid var(--border); border-bottom: 0.5px solid var(--border); padding: 6px; cursor: pointer; transition: background .1s; vertical-align: top; }
+  .cal-cell:hover { background: var(--bg); }
+  .cal-empty { background: var(--bg); opacity: .4; }
+  .cal-today { background: #FEFBF3; }
+  .cal-day-num { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 4px; }
+  .cal-today-num { width: 22px; height: 22px; background: var(--accent); color: var(--accent-text); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -199,6 +210,11 @@
           <option value="">Все источники</option>
           <option>Thumbtack</option><option>Yelp</option><option>Google Ads</option><option>Другое</option>
         </select>
+        <select class="filter-sel" id="filter-worker" onchange="renderLeads()">
+          <option value="">Все исполнители</option>
+          <option value="Serge">🔵 Serge</option>
+          <option value="Nik">🟢 Nik</option>
+        </select>
       </div>
       <div style="margin-left:auto" id="add-btn-wrap">
         <button class="btn btn-primary" onclick="openAdd()">+ Заявка</button>
@@ -228,6 +244,9 @@ const SERVICES = ['Сантехника','Электрика','Плотник','
 const SRC_CLASS = {Thumbtack:'src-thumbtack',Yelp:'src-yelp','Google Ads':'src-google',Другое:'src-other'};
 const STAT_CLASS = {Новая:'s-new','КП отправлено':'s-quoted',Запланировано:'s-scheduled',Выполнено:'s-done',Оплачено:'s-paid',Отказ:'s-lost'};
 const AVATAR_COLORS = [['#E6F1FB','#0C447C'],['#EAF3DE','#27500A'],['#FAEEDA','#633806'],['#EEEDFE','#3C3489'],['#FAECE7','#712B13'],['#FBEAF0','#72243E']];
+const WORKERS = ['', 'Serge', 'Nik'];
+function workerClass(w){ return 'badge '+(w==='Serge'?'worker-serge':w==='Nik'?'worker-nik':'worker-none'); }
+function workerLabel(w){ return w||'Не назначен'; }
 
 let currentView = 'leads';
 let editId = null;
@@ -315,11 +334,13 @@ function renderLeads(){
   const q=(document.getElementById('search-input')||{}).value||'';
   const fs=document.getElementById('filter-status').value;
   const fsrc=document.getElementById('filter-source').value;
+  const fw=(document.getElementById('filter-worker')||{}).value||'';
   const list=allLeads.filter(l=>{
     const mq=(l.name||'').toLowerCase().includes(q.toLowerCase())||(l.service||'').toLowerCase().includes(q.toLowerCase());
     const ms=!fs||l.status===fs;
     const msrc=!fsrc||l.source===fsrc;
-    return mq&&ms&&msrc;
+    const mw=!fw||l.worker===fw;
+    return mq&&ms&&msrc&&mw;
   });
   const el=document.getElementById('main-content');
   if(!list.length){ el.innerHTML='<div class="empty">📋 Заявок не найдено</div>'; return; }
@@ -332,31 +353,91 @@ function renderLeads(){
       </div>
       <span class="${srcClass(l.source)}">${srcLabel(l.source||'Другое')}</span>
       <span class="${statClass(l.status)}">${l.status||'Новая'}</span>
+      <span class="${workerClass(l.worker)}" style="min-width:60px;text-align:center">${workerLabel(l.worker)}</span>
       <div class="lead-amt">${fmtAmt(l.amount)}</div>
     </div>
   `).join('');
 }
 
-/* SCHEDULE VIEW */
+/* SCHEDULE VIEW - Calendar */
+let calYear=new Date().getFullYear();
+let calMonth=new Date().getMonth();
+
 function renderSchedule(){
-  const list=allLeads.filter(l=>l.status==='Запланировано'||l.status==='Новая').sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const el=document.getElementById('main-content');
-  if(!list.length){ el.innerHTML='<div class="empty">📅 Нет запланированных работ</div>'; return; }
-  el.innerHTML=list.map(l=>{
-    const d=l.date?new Date(l.date):null;
-    return `<div class="lead-row" onclick="openLead(${l.id})" style="align-items:flex-start;padding:12px">
-      <div style="width:48px;text-align:center;flex-shrink:0;padding-top:2px">
-        <div style="font-size:20px;font-weight:700;line-height:1">${d?d.getDate():'—'}</div>
-        <div style="font-size:11px;color:var(--text3)">${d?d.toLocaleDateString('ru-RU',{month:'short'}):''}</div>
-      </div>
-      <div class="lead-info">
-        <div class="lead-name">${l.name||'—'}</div>
-        <div class="lead-sub">${l.service||''} · ${l.address||''}</div>
-      </div>
-      <span class="${statClass(l.status)}">${l.status}</span>
-      <div class="lead-amt">${fmtAmt(l.amount)}</div>
+  const now=new Date();
+  const firstDay=new Date(calYear,calMonth,1);
+  const lastDay=new Date(calYear,calMonth+1,0);
+  const startDow=firstDay.getDay(); // 0=Sun
+  const totalDays=lastDay.getDate();
+  const monthName=firstDay.toLocaleDateString('ru-RU',{month:'long',year:'numeric'});
+
+  // build day->leads map
+  const dayMap={};
+  allLeads.forEach(l=>{
+    if(!l.date) return;
+    const d=new Date(l.date+'T00:00:00');
+    if(d.getFullYear()===calYear&&d.getMonth()===calMonth){
+      const k=d.getDate();
+      if(!dayMap[k]) dayMap[k]=[];
+      dayMap[k].push(l);
+    }
+  });
+
+  const dow=['Вс','Пн','Вт','Ср','Чт','Пт','Сб'];
+  let cells='';
+  // empty cells before first day
+  for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell cal-empty"></div>`;
+  // day cells
+  for(let d=1;d<=totalDays;d++){
+    const isToday=d===now.getDate()&&calMonth===now.getMonth()&&calYear===now.getFullYear();
+    const leads=dayMap[d]||[];
+    const evts=leads.slice(0,3).map(l=>{
+      const src=l.source||'Другое';
+      const clr={Thumbtack:'#378ADD',Yelp:'#E24B4A','Google Ads':'#639922',Другое:'#888780'}[src]||'#888780';
+      const time=l.time?`<span style="font-size:9px;opacity:.8">${l.time}</span> `:'';
+      const wDot=l.worker==='Serge'?' 🔵':l.worker==='Nik'?' 🟢':'';
+      return `<div onclick="event.stopPropagation();openLead(${l.id})" style="background:${clr};color:#fff;border-radius:3px;padding:2px 5px;font-size:10px;margin-bottom:2px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${time}${l.name||'—'}${wDot}</div>`;
+    }).join('');
+    const more=leads.length>3?`<div style="font-size:10px;color:var(--text3)">+${leads.length-3} ещё</div>`:'';
+    cells+=`<div class="cal-cell${isToday?' cal-today':''}" onclick="calDayClick(${d})">
+      <div class="cal-day-num${isToday?' cal-today-num':''}">${d}</div>
+      ${evts}${more}
     </div>`;
-  }).join('');
+  }
+
+  el.innerHTML=`
+    <div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:0.5px solid var(--border)">
+        <button class="btn" onclick="calPrev()" style="padding:5px 10px">‹</button>
+        <span style="font-size:14px;font-weight:600;text-transform:capitalize">${monthName}</span>
+        <button class="btn" onclick="calNext()" style="padding:5px 10px">›</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);border-bottom:0.5px solid var(--border)">
+        ${dow.map(d=>`<div style="padding:8px 4px;text-align:center;font-size:11px;font-weight:600;color:var(--text3)">${d}</div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr)">
+        ${cells}
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span style="font-size:12px;color:var(--text2)">Источники:</span>
+      ${[['Thumbtack','#378ADD'],['Yelp','#E24B4A'],['Google Ads','#639922'],['Другое','#888780']].map(([s,c])=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text2)"><span style="width:10px;height:10px;border-radius:2px;background:${c};display:inline-block"></span>${s}</span>`).join('')}
+    </div>
+  `;
+}
+
+function calPrev(){ calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderSchedule(); }
+function calNext(){ calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderSchedule(); }
+function calDayClick(d){
+  // open add panel pre-filled with date
+  openAdd();
+  setTimeout(()=>{
+    const dateEl=document.getElementById('a-date');
+    if(dateEl) dateEl.value=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const statusEl=document.getElementById('a-status');
+    if(statusEl) statusEl.value='Запланировано';
+  },50);
 }
 
 /* SOURCES VIEW */
@@ -399,6 +480,15 @@ function renderSources(){
             </div>
           </div>
         </div>`;
+      }).join('')}
+    </div>
+    <div class="section-hd" style="margin-top:20px">Нагрузка по исполнителям</div>
+    <div style="display:flex;gap:10px;margin-bottom:20px">
+      ${[['Serge','worker-serge','🔵'],['Nik','worker-nik','🟢'],['','worker-none','⚪']].map(([w,cls,icon])=>{
+        const wl=allLeads.filter(l=>l.worker===w);
+        const wr=wl.reduce((s,l)=>s+Number(l.amount||0),0);
+        const wActive=wl.filter(l=>l.status==='Запланировано'||l.status==='Новая').length;
+        return '<div style="flex:1;border:0.5px solid var(--border);border-radius:var(--radius-sm);padding:12px;background:var(--surface)"><div style="margin-bottom:8px"><span class="badge '+cls+'">'+icon+' '+(w||'Не назначен')+'</span></div><div style="font-size:22px;font-weight:600;margin-bottom:2px">'+wl.length+'</div><div style="font-size:11px;color:var(--text2)">'+wActive+' активных · $'+wr.toLocaleString()+'</div></div>';
       }).join('')}
     </div>
     <div class="section-hd">Топ услуг</div>
@@ -547,6 +637,13 @@ function openLead(id){
         ${['Новая','КП отправлено','Запланировано','Выполнено','Оплачено','Отказ'].map(s=>`<option${l.status===s?' selected':''}>${s}</option>`).join('')}
       </select>
     </div>
+    <div class="field-group"><div class="field-label">Исполнитель</div>
+      <select class="field-input" onchange="patchField(${id},'worker',this.value)">
+        <option value="">Не назначен</option>
+        <option value="Serge"${l.worker==='Serge'?' selected':''}>🔵 Serge</option>
+        <option value="Nik"${l.worker==='Nik'?' selected':''}>🟢 Nik</option>
+      </select>
+    </div>
     <div class="two-col">
       <div class="field-group"><div class="field-label">Сумма ($)</div>
         <input class="field-input" type="number" value="${l.amount||''}" placeholder="0" onchange="patchField(${id},'amount',+this.value)">
@@ -554,6 +651,9 @@ function openLead(id){
       <div class="field-group"><div class="field-label">Дата</div>
         <input class="field-input" type="date" value="${l.date||''}" onchange="patchField(${id},'date',this.value)">
       </div>
+    </div>
+    <div class="field-group"><div class="field-label">Время визита</div>
+      <input class="field-input" type="time" value="${l.time||''}" onchange="patchField(${id},'time',this.value)">
     </div>
     <div class="field-group"><div class="field-label">Телефон</div>
       <input class="field-input" value="${l.phone||''}" onchange="patchField(${id},'phone',this.value)">
@@ -628,9 +728,19 @@ function openAdd(){
       <div class="field-group"><div class="field-label">Сумма ($)</div><input class="field-input" id="a-amt" type="number" placeholder="0"></div>
       <div class="field-group"><div class="field-label">Дата</div><input class="field-input" id="a-date" type="date" value="${todayDate}"></div>
     </div>
-    <div class="field-group"><div class="field-label">Статус</div>
-      <select class="field-input" id="a-status">
-        <option>Новая</option><option>КП отправлено</option><option>Запланировано</option><option>Выполнено</option><option>Оплачено</option>
+    <div class="two-col">
+      <div class="field-group"><div class="field-label">Время визита</div><input class="field-input" id="a-time" type="time"></div>
+      <div class="field-group"><div class="field-label">Статус</div>
+        <select class="field-input" id="a-status">
+          <option>Новая</option><option>КП отправлено</option><option>Запланировано</option><option>Выполнено</option><option>Оплачено</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-group"><div class="field-label">Исполнитель</div>
+      <select class="field-input" id="a-worker">
+        <option value="">Не назначен</option>
+        <option value="Serge">🔵 Serge</option>
+        <option value="Nik">🟢 Nik</option>
       </select>
     </div>
     <div class="field-group"><div class="field-label">Заметки</div><textarea class="field-input" id="a-notes" rows="3" placeholder="Детали работы..."></textarea></div>
@@ -649,7 +759,9 @@ async function saveNew(){
     source:src, service:document.getElementById('a-svc').value,
     amount:+document.getElementById('a-amt').value||0,
     date:document.getElementById('a-date').value,
+    time:document.getElementById('a-time')?document.getElementById('a-time').value:'',
     status:document.getElementById('a-status').value,
+    worker:document.getElementById('a-worker')?document.getElementById('a-worker').value:'',
     notes:document.getElementById('a-notes').value,
     history:[`${today()} — заявка добавлена (${src})`]
   };
